@@ -1,0 +1,5 @@
+/envs
+/envs.exe
+/dist/
+.env*
+.dev.vars*

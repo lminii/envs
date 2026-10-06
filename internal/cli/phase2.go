@@ -203,9 +203,13 @@ func printable(text string) string {
 
 // logout removes the cached store key and the local clone. The trusted
 // folder list stays.
-func (a *App) logout(args []string) error {
+func (a *App) logout(ctx context.Context, args []string) error {
 	if len(args) != 0 {
 		return errors.New("envs logout takes no arguments. Run \"envs logout\"")
+	}
+	var remoteURL string
+	if s, err := store.Open(a.storeDir()); err == nil {
+		remoteURL, _ = s.RemoteURL(ctx)
 	}
 	if err := keycache.Delete(); err != nil {
 		a.warn("cannot remove the store key from the OS keychain (%v).", err)
@@ -214,5 +218,8 @@ func (a *App) logout(args []string) error {
 		return fmt.Errorf("cannot remove the store: %v. Close programs that use %s and run \"envs logout\" again", err, a.storeDir())
 	}
 	fmt.Fprintln(a.Stdout, "Logged out. The store key and the local store are removed from this device.")
+	if remoteURL != "" {
+		fmt.Fprintf(a.Stdout, "Run \"envs login %s\" to log in again.\n", printable(remoteURL))
+	}
 	return nil
 }

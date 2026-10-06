@@ -124,7 +124,7 @@ func (a *App) Run(args []string) int {
 	case "log":
 		err = a.log(ctx, rest)
 	case "logout":
-		err = a.logout(rest)
+		err = a.logout(ctx, rest)
 	default:
 		err = fmt.Errorf("unknown command %q. Run \"envs help\" to see the commands", command)
 	}

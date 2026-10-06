@@ -92,6 +92,7 @@ The developer already has git and a git host account.
 All commands that touch a project accept `--env <name>`.
 The default environment is `dev`.
 All commands that touch a project accept `--project <name>` to override the link file.
+`envs run`, `envs list`, and `envs log` accept `--offline`.
 
 ## 8. Functional requirements
 
@@ -152,6 +153,9 @@ All secret files stay unchanged.
 - If the hash differs from the cached hash, the tool asks for the passphrase and unlocks the new `key.age`.
 - If the hash is equal, the tool stops with an error that names the file and says the store was changed outside envs.
 - If `key.age` changes and the cached store key still decrypts the files, the tool updates the cached hash.
+- Before a command creates a new secret file, the tool hashes the current `key.age`. If the hash differs from the cached hash, the tool asks for the passphrase first.
+
+No existing file proves that the cached key is current, and a key from before `envs rotate` must not encrypt a new file.
 
 The hash rule lets other devices continue after `envs rotate`, and it separates a rotation from a tampered file.
 
@@ -194,8 +198,8 @@ The `.git` boundary stops a downloaded repository inside a trusted project from 
 - Before each read, the tool runs a fetch with a timeout of 5 seconds, then a local fast-forward-only merge with no timeout.
 - For that fetch, the tool disables terminal prompts, Git Credential Manager windows, and ssh prompts.
 - A failed fetch and a non-fast-forward result both count as a failed sync.
-- If the sync fails, `run` and `list` use the local clone and print a warning to stderr. For a non-fast-forward result, the warning says that the remote history changed.
-- The flag `--offline` skips the sync.
+- If the sync fails, `run`, `list`, and `log` use the local clone and print a warning to stderr. For a non-fast-forward result, the warning says that the remote history changed.
+- The flag `--offline` on `run`, `list`, and `log` skips the sync.
 - Each write follows this sequence: sync, decrypt, apply the change, encrypt, commit, push.
 - If the remote rejects the push, the tool discards the local commit and repeats the sequence.
 - If a file fails to decrypt inside the retry loop, the tool applies the 8.4 rules before the next attempt.
@@ -206,6 +210,7 @@ The `.git` boundary stops a downloaded repository inside a trusted project from 
 ### 8.8 Input
 
 - `envs set` reads the value from a hidden prompt when stdin is a terminal.
+- A hidden prompt shows one `*` for each typed character. It never shows the typed characters.
 - `envs set` reads the value from stdin when stdin is not a terminal.
 - `envs set` removes one line ending, `\n` or `\r\n`, from the end of a stdin value.
 - `envs set` rejects an empty value.
@@ -248,6 +253,25 @@ The `.git` boundary stops a downloaded repository inside a trusted project from 
 - Each error message states the cause and the command that corrects it.
 - The tool exits with a non-zero code on each failure.
 
+### 8.12 Passphrase change, rotation, history, and logout
+
+- `envs passwd` and `envs rotate` stop with an error if stdin is not a terminal.
+- `envs passwd` and `envs rotate` always ask for the current passphrase.
+- `envs passwd` and `envs rotate` take the store key from `key.age`, never from the key cache.
+- `envs passwd` and `envs rotate` use the write sequence of 8.7, with a maximum of 3 attempts.
+- `envs rotate` decrypts all secret files before it writes the first one.
+- If one file fails to decrypt, `envs rotate` stops and changes no file.
+- `envs log` shows all environments of the project. With `--env`, it shows one environment.
+- `envs log` shows only commits that change a file of the project, so `envs passwd` does not appear.
+- `envs log` needs no store key.
+- `envs log` replaces each control character in a commit subject with `?`.
+- `envs logout` removes the cached store key and `~/.envs/store`. It keeps `~/.envs/trusted.json`.
+- `envs logout` asks for no confirmation, because the remote holds all data.
+- `envs logout` prints the `envs login <repo-url>` command for the store it removed. The tool does not save the URL.
+
+A cached store key from before a rotation on another device must not go into `key.age`.
+A person with write access to the store can put terminal escape sequences in a commit subject.
+
 ## 9. Security
 
 ### 9.1 Threats and controls
@@ -281,6 +305,7 @@ The `.git` boundary stops a downloaded repository inside a trusted project from 
 - Hostile code that runs as the user can call `envs run --project <name>` with no confirmation.
 - Go cannot erase a value from memory reliably. A swap file, a hibernation file, or a crash dump can contain values.
 - Clipboard history and cloud clipboard sync can keep a pasted value.
+- The hidden prompt shows the length of a typed value or passphrase on screen.
 
 ### 9.3 Leak response
 
@@ -297,7 +322,7 @@ The `.git` boundary stops a downloaded repository inside a trusted project from 
 - `envs run` with a successful pull adds less than 1.5 s on a normal connection.
 - The tool is one static binary for Windows, macOS, and Linux on amd64 and arm64.
 - The tool needs git 2.30 or later on the `PATH`.
-- The language is Go, version 1.25 or later. `filippo.io/age` v1.3.2 requires this version.
+- The language is Go. `go.mod` names the latest Go release, so each build uses a standard library with current security patches.
 
 ## 11. Cloudflare Workers use
 
@@ -308,7 +333,9 @@ The `.git` boundary stops a downloaded repository inside a trusted project from 
 2. Do not create `.dev.vars` or `.env` in the project.
 3. Start the dev server with `envs run -- npx wrangler dev`.
 
-Wrangler loads the keys in `secrets.required` from the process environment.
+The `secrets.required` block is mandatory.
+Wrangler loads only the keys in `secrets.required` from the process environment.
+Without the block, Wrangler ignores the process environment (verified with Wrangler 4.130).
 
 ## 12. Success criteria
 
@@ -330,6 +357,9 @@ Wrangler loads the keys in `secrets.required` from the process environment.
 
 - The name is `envs`. No command with this name exists on the development machine.
 - Distribution is by release binaries only.
+- A GitHub Actions workflow tests the code and builds the release binaries when a `v*` tag is pushed.
+- The repository stays private.
+- `envs init` stays a separate step. A command does not create a link file on first use.
 - The GitHub account `lminii` owns the repository.
   The Go module path is `github.com/lminii/envs`.
 

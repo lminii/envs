@@ -30,6 +30,9 @@ func TestLogout(t *testing.T) {
 		if !strings.Contains(r.stdout, "Logged out") {
 			t.Errorf("stdout = %q", r.stdout)
 		}
+		if !strings.Contains(r.stdout, "Run \"envs login "+w.remote+"\" to log in again.") {
+			t.Errorf("stdout = %q", r.stdout)
+		}
 		if _, err := os.Stat(d.storeDir()); err == nil {
 			t.Error("the clone is still on the device")
 		}
@@ -44,7 +47,9 @@ func TestLogout(t *testing.T) {
 		d.fails(dir, "", "this device has no store. Run \"envs login <repo-url>\"", "list")
 	})
 	t.Run("a second logout succeeds", func(t *testing.T) {
-		d.ok(dir, "", "logout")
+		if r := d.ok(dir, "", "logout"); strings.Contains(r.stdout, "envs login") {
+			t.Errorf("stdout = %q", r.stdout)
+		}
 	})
 	t.Run("login after logout", func(t *testing.T) {
 		d.login(w.remote, false)

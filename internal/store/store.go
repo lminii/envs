@@ -168,7 +168,7 @@ func (s *Store) noPromptEnv(ctx context.Context) []string {
 	if _, set := os.LookupEnv("GIT_SSH_COMMAND"); set {
 		return env
 	}
-	remoteURL, err := s.local(ctx, "config", "--get", "remote."+remote+".url")
+	remoteURL, err := s.RemoteURL(ctx)
 	if err != nil || !isSSH(remoteURL) {
 		return env
 	}
@@ -176,6 +176,11 @@ func (s *Store) noPromptEnv(ctx context.Context) []string {
 		return env
 	}
 	return append(env, "GIT_SSH_COMMAND=ssh -o BatchMode=yes")
+}
+
+// RemoteURL returns the URL that the store was cloned from.
+func (s *Store) RemoteURL(ctx context.Context) (string, error) {
+	return s.local(ctx, "config", "--get", "remote."+remote+".url")
 }
 
 func isSSH(remoteURL string) bool {

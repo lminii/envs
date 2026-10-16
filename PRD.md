@@ -358,7 +358,7 @@ Without the block, Wrangler ignores the process environment (verified with Wrang
 - The name is `envs`. No command with this name exists on the development machine.
 - Distribution is by release binaries only.
 - A GitHub Actions workflow tests the code and builds the release binaries when a `v*` tag is pushed.
-- The repository stays private.
+- The repository is public.
 - `envs init` stays a separate step. A command does not create a link file on first use.
 - The GitHub account `lminii` owns the repository.
   The Go module path is `github.com/lminii/envs`.

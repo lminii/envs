@@ -459,6 +459,10 @@ func TestThreat_CurrentFolderProgram(t *testing.T) {
 		os.Unsetenv(noCurrentDir)
 		t.Cleanup(func() { os.Setenv(noCurrentDir, old) })
 	}
+	// Unix searches the current folder only for a "." or empty PATH entry.
+	if runtime.GOOS != "windows" {
+		t.Setenv("PATH", "."+string(os.PathListSeparator)+os.Getenv("PATH"))
+	}
 
 	t.Run("a bare name does not start the program", func(t *testing.T) {
 		w.a.fails(w.dir, "", `the program "wrangler" is in the current folder, and envs does not start a program from the current folder. Use an explicit path such as ./wrangler`, "run", "--", "wrangler", "dev")

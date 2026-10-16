@@ -110,6 +110,10 @@ func TestRunProgramInCurrentFolder(t *testing.T) {
 	}
 
 	t.Run("bare name is refused", func(t *testing.T) {
+		// Unix searches the current folder only for a "." or empty PATH entry.
+		if runtime.GOOS != "windows" {
+			t.Setenv("PATH", "."+string(os.PathListSeparator)+os.Getenv("PATH"))
+		}
 		_, err := Run([]string{"prog"}, nil)
 		if err == nil || !strings.Contains(err.Error(), "does not start a program from the current folder") {
 			t.Fatalf("error = %v, want the current folder error", err)
@@ -117,13 +121,10 @@ func TestRunProgramInCurrentFolder(t *testing.T) {
 	})
 	t.Run("bare name is refused when the search skips the current folder", func(t *testing.T) {
 		t.Setenv(noCurrentDir, "1")
+		t.Setenv("PATH", t.TempDir())
 		_, err := Run([]string{"prog"}, nil)
-		if runtime.GOOS == "windows" {
-			if err == nil || !strings.Contains(err.Error(), "is not on the PATH") {
-				t.Fatalf("error = %v, want a not found error", err)
-			}
-		} else if err == nil || !strings.Contains(err.Error(), "does not start a program from the current folder") {
-			t.Fatalf("error = %v, want the current folder error", err)
+		if err == nil || !strings.Contains(err.Error(), "is not on the PATH") {
+			t.Fatalf("error = %v, want a not found error", err)
 		}
 	})
 	t.Run("explicit path starts", func(t *testing.T) {

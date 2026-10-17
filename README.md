@@ -175,4 +175,32 @@ go test -race ./...
 ```
 
 Tests run against local bare git repositories, so they need git but no network.
-Pushing a `v*` tag runs the tests on Linux and macOS, builds the release binaries and `SHA256SUMS`, and updates the formula in [lminii/homebrew-tap](https://github.com/lminii/homebrew-tap).
+
+## Releasing
+
+Push a version tag from an up-to-date `main`:
+
+```sh
+git switch main && git pull
+git tag -a v0.3.0 -m v0.3.0
+git push origin v0.3.0
+```
+
+The tag starts [`.github/workflows/release.yml`](.github/workflows/release.yml), which runs three jobs in order:
+
+1. **test**: `gofmt`, `go vet`, `go test -race`, and `govulncheck` on Linux and macOS.
+2. **release**: builds the 6 binaries with `CGO_ENABLED=0`, writes `SHA256SUMS`, and creates the GitHub release with generated notes.
+3. **homebrew**: runs [`scripts/homebrew-formula.sh`](scripts/homebrew-formula.sh) with the new checksums and pushes `Formula/envs.rb` to [lminii/homebrew-tap](https://github.com/lminii/homebrew-tap).
+
+Watch it with `gh run watch`. When it finishes, `brew upgrade envs` installs the new version.
+
+The homebrew job needs the `HOMEBREW_TAP_TOKEN` secret on this repo: a fine-grained token with Contents read and write on `lminii/homebrew-tap` only. Without it, the job skips with a warning and the release itself still succeeds. When the token expires, create a new one with the same scope and run `gh secret set HOMEBREW_TAP_TOKEN -R lminii/envs`.
+
+Don't rerun the homebrew job of an old release. It checks out that release's tag, so it uses that tag's version of the formula script. To fix the formula by hand, run the script from `main` and push the result to the tap:
+
+```sh
+gh release download v0.3.0 -p SHA256SUMS -O /tmp/SHA256SUMS
+scripts/homebrew-formula.sh 0.3.0 /tmp/SHA256SUMS > ../homebrew-tap/Formula/envs.rb
+```
+
+Check a formula change with `brew audit --strict lminii/tap/envs`.

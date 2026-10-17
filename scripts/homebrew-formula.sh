@@ -21,8 +21,9 @@ cat <<FORMULA
 class Envs < Formula
   desc "Sync encrypted development secrets through a private git repository"
   homepage "https://github.com/lminii/envs"
-  version "$version"
   license "MIT"
+
+  uses_from_macos "git"
 
   on_macos do
     on_arm do
@@ -45,8 +46,6 @@ class Envs < Formula
       sha256 "$(sum linux-amd64)"
     end
   end
-
-  uses_from_macos "git"
 
   def install
     bin.install Dir["envs-*"].first => "envs"

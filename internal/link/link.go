@@ -1,4 +1,4 @@
-// Package link finds the project link file and keeps the trusted folder list (PRD 8.5 and 8.6).
+// Package link finds the project link file and keeps the trusted folder list.
 package link
 
 import (

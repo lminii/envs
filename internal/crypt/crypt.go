@@ -1,4 +1,4 @@
-// Package crypt wraps age passphrase mode for the store key and the secret files (PRD 8.3).
+// Package crypt wraps age passphrase mode for the store key and the secret files.
 package crypt
 
 import (
@@ -33,7 +33,7 @@ const (
 
 	// The work factor is in the file header and scrypt runs before the
 	// authentication check. These caps stop a changed header from forcing a
-	// 2^22 scrypt (about 4 GiB and 15 s). Do not raise them without a PRD change.
+	// 2^22 scrypt (about 4 GiB and 15 s). Do not raise them.
 	secretMaxWorkFactor = 10
 	keyMaxWorkFactor    = 20
 )

@@ -14,7 +14,7 @@ import (
 	"github.com/lminii/envs/internal/store"
 )
 
-// Each test in this file covers one row of PRD table 9.1.
+// Each test in this file covers one row of the threat table in README.md.
 
 const outsideEnvs = "The store was changed outside envs"
 

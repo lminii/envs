@@ -1,4 +1,4 @@
-// Package runner starts the child process of "envs run" (PRD 8.9).
+// Package runner starts the child process of "envs run".
 package runner
 
 import (

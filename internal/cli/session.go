@@ -124,7 +124,7 @@ func (se *session) currentKeyHash() string {
 }
 
 // load decrypts the secret file of t. exists is false when the store has no
-// such file. load applies the key.age hash rule of PRD 8.4.
+// such file. load applies the key.age hash rule.
 func (se *session) load(t target) (file *crypt.SecretFile, exists bool, err error) {
 	if err := se.unlock(); err != nil {
 		return nil, false, err
@@ -178,7 +178,7 @@ func (se *session) secretFileError(t target, err error) error {
 	return fmt.Errorf("cannot use %s.age: %v", t, err)
 }
 
-// write changes the secret file of t with the write sequence of PRD 8.7.
+// write changes the secret file of t with the write sequence.
 func (se *session) write(ctx context.Context, t target, message string, change func(file *crypt.SecretFile) error) error {
 	return se.commit(ctx, message, func() ([]string, error) {
 		file, exists, err := se.load(t)
@@ -229,7 +229,7 @@ func (se *session) keyFromFile(passphrase string) (string, error) {
 	return key, nil
 }
 
-// commit runs the write sequence of PRD 8.7: sync, build, commit, push.
+// commit runs the write sequence: sync, build, commit, push.
 // build changes files in the clone and returns their paths, relative to the
 // store root. After a rejected push, commit discards the local commit and
 // starts again, so build runs on the new remote state.

@@ -1,4 +1,4 @@
-// Package names validates project, environment, and key names (PRD 8.2).
+// Package names validates project, environment, and key names.
 package names
 
 import (

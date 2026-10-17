@@ -1,4 +1,4 @@
-// Package keycache keeps the store key in the OS keychain (PRD 8.4).
+// Package keycache keeps the store key in the OS keychain.
 package keycache
 
 import (

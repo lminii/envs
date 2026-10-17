@@ -13,9 +13,10 @@ envs run -- bun run dev                         # every time
 
 ## Why
 
-Cloudflare Worker secrets are write-only, so a second device can't pull them back.
-Local secrets end up in `.env` or `.dev.vars` files that get copied between machines by hand, go stale, and sit on disk in plaintext.
-`envs` keeps one encrypted copy per project in a git repo you already control, and hands the values to your dev command when it starts.
+Working on more than one machine means copying `.env` files around by hand. They go stale, and they sit on disk in plaintext.
+Hosted secret managers fix that, but they need an account and a server, and some need a key file you still have to copy.
+
+`envs` is a small CLI for local development only. It keeps one encrypted copy of each project's secrets in a private git repo you already have, and a new machine needs just that repo and a passphrase.
 
 It is built for one developer on several machines. It has no team features.
 
@@ -129,18 +130,7 @@ What it does not protect against:
 - The git host seeing project names, environment names, key names in commit messages, and commit times.
 - A leaked passphrase. Old `key.age` files stay in git history, so `envs passwd` alone doesn't revoke it. Rotate the real secrets at each provider, then run `envs passwd` and `envs rotate`.
 
-Keep development secrets in `envs`. Production secrets belong in your platform's secret store.
-
-## Cloudflare Workers
-
-Wrangler only reads secrets from the process environment if they are declared:
-
-```jsonc
-// wrangler.jsonc
-{ "secrets": { "required": ["API_KEY"] } }
-```
-
-Then delete `.dev.vars` and run `envs run -- npx wrangler dev`.
+`envs` is for development secrets. For production, use the secret manager of your CI or host, such as GitHub Actions secrets.
 
 ## Development
 

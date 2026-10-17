@@ -172,5 +172,12 @@ func (a *App) init(ctx context.Context, args []string) error {
 		return err
 	}
 	fmt.Fprintf(a.Stdout, "Linked %s to the project %q. Commit %s to the project repository.\n", folder, project, link.FileName)
+	if rule := store.IgnoreRule(ctx, a.Dir, link.FileName); rule != "" {
+		a.warn("git ignores %s because of the rule %s, so your other devices do not get it. %s", link.FileName, rule, unignoreHint)
+	}
 	return nil
 }
+
+// unignoreHint tells the user how to commit a link file that git ignores. A
+// ".env*" rule, common in project templates, also matches ".envs.json".
+var unignoreHint = fmt.Sprintf("Add the line \"!%s\" below that rule, then commit %s.", link.FileName, link.FileName)

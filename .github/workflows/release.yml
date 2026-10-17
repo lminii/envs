@@ -51,3 +51,30 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes
+
+  homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Update the formula in lminii/homebrew-tap
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$TAP_TOKEN" ]; then
+            echo "::warning::HOMEBREW_TAP_TOKEN is not set, so the formula was not updated"
+            exit 0
+          fi
+          version="${GITHUB_REF_NAME#v}"
+          gh release download "$GITHUB_REF_NAME" -p SHA256SUMS
+          git clone --quiet "https://x-access-token:${TAP_TOKEN}@github.com/lminii/homebrew-tap.git" tap
+          mkdir -p tap/Formula
+          scripts/homebrew-formula.sh "$version" SHA256SUMS > tap/Formula/envs.rb
+          cd tap
+          git add Formula/envs.rb
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit --quiet -m "envs $version"
+          git push --quiet origin HEAD

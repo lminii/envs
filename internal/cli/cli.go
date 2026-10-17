@@ -14,6 +14,7 @@ import (
 
 	"github.com/lminii/envs/internal/link"
 	"github.com/lminii/envs/internal/names"
+	"github.com/lminii/envs/internal/store"
 )
 
 const defaultEnvironment = "dev"
@@ -27,17 +28,18 @@ Usage:
   envs list                 Print the key names.
   envs rm <KEY>             Delete a key.
   envs run -- <command>     Run a command with the stored values in its environment.
+  envs status               Show the store, the project, and what is missing.
   envs import <file>        Store all keys of a dotenv file.
   envs log                  Show the change history of the project.
   envs passwd               Change the passphrase.
   envs rotate               Create a new store key and encrypt all files again.
   envs logout               Remove the store key and the store from this device.
 
-Flags for set, list, rm, run, import, and log:
+Flags for set, list, rm, run, status, import, and log:
   --env <name>              Environment. The default is "dev".
   --project <name>          Project. The default comes from .envs.json.
 
-Flag for list, run, and log:
+Flag for list, run, status, and log:
   --offline                 Do not sync with the remote first.
 `
 
@@ -115,6 +117,8 @@ func (a *App) Run(args []string) int {
 		err = a.rm(ctx, rest)
 	case "run":
 		code, err = a.run(ctx, rest)
+	case "status":
+		err = a.status(ctx, rest)
 	case "import":
 		err = a.importFile(ctx, rest)
 	case "passwd":
@@ -202,7 +206,7 @@ func (a *App) parse(command string, args []string, withOffline, interspersed boo
 }
 
 // resolve returns the project and environment of the command. A project from
-// a link file needs a trusted folder (PRD 8.6). --project does not.
+// a link file needs a trusted folder. --project does not.
 func (a *App) resolve(opts options) (target, error) {
 	t := target{project: opts.project, environment: opts.environment}
 	if t.project != "" {
@@ -210,6 +214,9 @@ func (a *App) resolve(opts options) (target, error) {
 	}
 	folder, project, err := link.Find(a.Dir)
 	if errors.Is(err, link.ErrNotFound) {
+		if rule := store.IgnoreRule(context.Background(), a.Dir, link.FileName); rule != "" {
+			return t, fmt.Errorf("no link file found, and git ignores %s here because of the rule %s. If you ran \"envs init\" on another device, the link file did not reach this one. %s Or run \"envs init\" here", link.FileName, rule, unignoreHint)
+		}
 		return t, errors.New("no link file found. Run \"envs init\" in the project folder or pass --project")
 	}
 	if err != nil {

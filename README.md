@@ -22,10 +22,18 @@ It is built for one developer on several machines. It has no team features.
 
 ## Install
 
-Download the binary for your platform from the [latest release](https://github.com/lminii/envs/releases/latest) and check it against `SHA256SUMS`:
+With Homebrew on macOS or Linux:
 
 ```sh
-shasum -a 256 -c SHA256SUMS --ignore-missing
+brew install lminii/tap/envs
+```
+
+`brew upgrade envs` picks up new releases.
+
+Without Homebrew, download the binary for your platform from the [latest release](https://github.com/lminii/envs/releases/latest), check it against `SHA256SUMS`, and put it on your `PATH`:
+
+```sh
+grep envs-darwin-arm64 SHA256SUMS | shasum -a 256 -c -
 chmod +x envs-darwin-arm64
 mv envs-darwin-arm64 ~/.local/bin/envs
 ```
@@ -35,7 +43,7 @@ On macOS, a binary downloaded with a browser is quarantined. Clear it with `xatt
 Or build from source with Go:
 
 ```sh
-go install github.com/lminii/envs@v0.1.0
+go install github.com/lminii/envs@latest
 ```
 
 `envs` needs git 2.30 or later on the `PATH`.
@@ -63,6 +71,23 @@ envs run -- bun run dev
 
 The first `envs run` in a folder on a new device asks you to confirm the folder before it injects anything.
 
+Commit `.envs.json` so other devices skip `envs init`. Many project templates ignore `.env*`, which also matches `.envs.json`. `envs init` warns when that happens. Add an exception below the rule:
+
+```gitignore
+.env*
+!.envs.json
+```
+
+To avoid typing `envs run --` every time, put it in the dev script:
+
+```json
+"scripts": { "dev": "envs run -- next dev" }
+```
+
+Keep it out of build scripts that run in CI, because CI has no store.
+
+`envs status` shows what this device and folder have: the store, sync, the cached key, the linked project, whether the folder is trusted, whether the link file is committed, and how many values are stored. It never prompts, so run it first when something doesn't work.
+
 | Command | What it does |
 | --- | --- |
 | `envs login <repo-url>` | Clone the store. Create or unlock the store key. |
@@ -71,6 +96,7 @@ The first `envs run` in a folder on a new device asks you to confirm the folder 
 | `envs list` | Print key names. |
 | `envs rm <KEY>` | Delete a key. |
 | `envs run -- <cmd>` | Run a command with the stored values in its environment. |
+| `envs status` | Show the store, the project, and what is missing. |
 | `envs import <file>` | Store all keys from a dotenv file. |
 | `envs log` | Show the change history of the project. |
 | `envs passwd` | Change the passphrase. |
@@ -78,7 +104,7 @@ The first `envs run` in a folder on a new device asks you to confirm the folder 
 | `envs logout` | Remove the cached key and the local store. |
 
 Project commands take `--env <name>` (default `dev`) and `--project <name>`.
-`run`, `list`, and `log` take `--offline` to skip the sync.
+`run`, `list`, `status`, and `log` take `--offline` to skip the sync.
 
 There is no command that prints a value.
 
@@ -114,14 +140,23 @@ There is no command that prints a value.
 
 ## Security
 
-The full threat model is in [PRD.md section 9](PRD.md#9-security). Each listed threat has a test in [`internal/cli/threat_test.go`](internal/cli/threat_test.go). A review of the design is in [docs/security-review.md](docs/security-review.md).
+Each threat below has a test in [`internal/cli/threat_test.go`](internal/cli/threat_test.go).
 
-What it protects against:
-
-- Someone reading the store repo. Every value is encrypted.
-- Someone with write access forging a file, moving a file to another project, raising the scrypt cost to stall the tool, or rewriting history.
-- A cloned project whose `.envs.json` names one of your projects. Unknown folders need confirmation.
-- Values leaking to scrollback or shell history. Values are never printed or passed as arguments.
+| Threat | Control | Test |
+| --- | --- | --- |
+| Someone reads the store repo, for example after a git host breach. | Every value is encrypted. The store key is locked by scrypt and a passphrase of 16 characters or more. | `StoreRead` |
+| Someone with write access adds a file with values of their choice. | Authenticated encryption. Only the store key can create a file the tool accepts. | `ForgedFile` |
+| Someone copies a file from one project to another. | After decryption, the project and environment names must match the file path. | `MovedFile` |
+| Someone deletes `key.age` so a new device creates a new key. | Login refuses a store that has secret files and no `key.age`. | `DeletedKeyFile` |
+| Someone raises the scrypt work factor in a header, or adds a huge file. | Work factor and 1 MiB size caps, checked before decryption. | `WorkFactorAndSize` |
+| Someone corrupts a file so the tool asks for the passphrase. | The cached `key.age` hash tells a rotation apart from tampering. The tool reports tampering instead of asking. | `CorruptedFile` |
+| Someone rewrites the store history. | Fast-forward-only sync, with a warning that the history changed. | `RewrittenHistory` |
+| A cloned project has a `.envs.json` that names one of your projects. | Unknown folders need confirmation before any value is injected. | `UntrustedLinkFile` |
+| A repo cloned inside a trusted project inherits its link file. | The link file search stops at the first `.git`. | `NestedRepository` |
+| A project contains a program with the same name as your dev command. | `envs run` never starts a program from the current folder without an explicit path. | `CurrentFolderProgram` |
+| A name or URL that changes a file path or a git command. | Strict name rules, git started without a shell, `--` before every argument. | `HostileNames` |
+| A value shows up in scrollback, logs, or shell history. | No command prints a value, the prompt is hidden, values are never arguments. | `ValueDisclosure` |
+| A plaintext copy stays on disk. | The tool writes no plaintext file. `envs import` warns about the source file. | `PlaintextOnDisk` |
 
 What it does not protect against:
 
@@ -140,4 +175,4 @@ go test -race ./...
 ```
 
 Tests run against local bare git repositories, so they need git but no network.
-Pushing a `v*` tag runs the tests on Linux and macOS, then builds the release binaries and `SHA256SUMS`.
+Pushing a `v*` tag runs the tests on Linux and macOS, builds the release binaries and `SHA256SUMS`, and updates the formula in [lminii/homebrew-tap](https://github.com/lminii/homebrew-tap).

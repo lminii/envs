@@ -1,4 +1,4 @@
-// Package store runs git on the local clone of the store repository (PRD 8.1 and 8.7).
+// Package store runs git on the local clone of the store repository.
 package store
 
 import (
@@ -300,6 +300,49 @@ func (s *Store) SecretFiles() ([]string, error) {
 		files = append(files, rel)
 	}
 	return files, nil
+}
+
+// The functions below run git in a project folder, not in the store. They
+// help the user commit the link file, and a git failure only hides the hint.
+
+// InWorkTree reports whether dir is inside a git work tree.
+func InWorkTree(ctx context.Context, dir string) bool {
+	ctx, cancel := context.WithTimeout(ctx, localTimeout)
+	defer cancel()
+	out, err := runGit(ctx, dir, nil, "rev-parse", "--is-inside-work-tree")
+	return err == nil && out == "true"
+}
+
+// IgnoreRule returns the gitignore rule that ignores name in dir, in the form
+// "<file>:<line>:<pattern>". It returns "" when git does not ignore name,
+// when name is tracked, or when dir is not in a git work tree.
+func IgnoreRule(ctx context.Context, dir, name string) string {
+	ctx, cancel := context.WithTimeout(ctx, localTimeout)
+	defer cancel()
+	out, err := runGit(ctx, dir, nil, "check-ignore", "--verbose", "--", name)
+	if err != nil {
+		return ""
+	}
+	// The line is <file>:<line>:<pattern>, a tab, and the path. --verbose
+	// also prints a matching negation, which does not ignore the path.
+	rule, _, _ := strings.Cut(out, "\t")
+	m := ignoreRule.FindStringSubmatch(rule)
+	if m == nil || strings.HasPrefix(m[1], "!") {
+		return ""
+	}
+	return rule
+}
+
+// ignoreRule matches <file>:<line>:<pattern>. The file can contain ":" on
+// Windows, so the line number is what anchors the match.
+var ignoreRule = regexp.MustCompile(`^.*?:\d+:(.*)$`)
+
+// IsTracked reports whether name in dir is in the git index.
+func IsTracked(ctx context.Context, dir, name string) bool {
+	ctx, cancel := context.WithTimeout(ctx, localTimeout)
+	defer cancel()
+	_, err := runGit(ctx, dir, nil, "ls-files", "--error-unmatch", "--", name)
+	return err == nil
 }
 
 func (s *Store) local(ctx context.Context, args ...string) (string, error) {
